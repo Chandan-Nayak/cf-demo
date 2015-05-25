@@ -1,12 +1,12 @@
 
 validate template
 ------------------
-aws cloudformation validate-template --template-body file:///Users/chandan/Documents/cf-demo/demo-vpc-nat.template
+aws cloudformation validate-template --template-body file:///Users/chandan/Documents/cf-demo/cfdemo-vpc.template
 aws cloudformation validate-template --template-url https://s3.amazonaws.com/cloudformation-templates-us-east-1/S3_Bucket.template
 
 create stack
 ------------
-aws cloudformation create-stack --stack-name demo --template-body file:///Users/chandan/Documents/cf-demo/demo-vpc-nat.template --parameters ParameterKey=natkey,ParameterValue=aws-study-app ParameterKey=SSHLocation,ParameterValue=0.0.0.0/32 ParameterKey=InstanceType,ParameterValue=t2.micro
+aws cloudformation create-stack --stack-name demo --template-body file:///Users/chandan/Documents/cf-demo/cfdemo-vpc.template --parameters ParameterKey=natkey,ParameterValue=aws-study-app ParameterKey=SSHLocation,ParameterValue=0.0.0.0/32 ParameterKey=InstanceType,ParameterValue=t2.micro
 
 explore
 -------
