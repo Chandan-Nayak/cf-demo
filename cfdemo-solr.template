@@ -1,0 +1,413 @@
+{
+  "Description": "Create EC2 Instance in the subnet",
+  "Parameters": {
+    "InstanceKey": {
+      "Description": "Enter the Authentication Key for this instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "Must be the name of an existing EC2 KeyPair."
+    },
+    "Vpc": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Description": "Select your VPC (ID)."
+    },
+    "Subnet": {
+      "Type": "AWS::EC2::Subnet::Id",
+      "Description": "Select the SubnetID to be used"
+    },
+    "S3Bucket": {
+      "Type": "String",
+      "Description": "An S3 bucket in your account that contains your scripts and zip files"
+    },
+    "WaitTime": {
+      "Type": "Number",
+      "Default": "300",
+      "Description": "Give the cfn-signal wait time in Seconds"
+    },
+    "InstanceType": {
+      "Description": "Type of EC2 instance to launch.",
+      "Type": "String",
+      "Default": "t2.micro",
+      "AllowedValues": [
+        "t2.micro",
+        "m1.medium",
+        "m1.large",
+        "m1.xlarge",
+        "m2.xlarge",
+        "m2.2xlarge",
+        "m2.4xlarge",
+        "m3.xlarge",
+        "m3.2xlarge",
+        "c3.large"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type."
+    },
+    "SSHLocation": {
+      "Description": "The IP address range that can be used to SSH to the EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    },
+    "ImageID": {
+      "Description": "Enter the ImageID for the instance",
+      "Type": "String",
+      "Default": "ami-68d8e93a"
+    }
+  },
+  "Resources": {
+    "solrsg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Solr SG",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "eu-solr-sg"
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": {
+              "Ref": "SSHLocation"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "8080",
+            "ToPort": "8080",
+            "CidrIp": {
+              "Ref": "SSHLocation"
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      }
+    },
+    "InstanceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/"
+      }
+    },
+    "RolePolicies": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "S3Download",
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "s3:GetObject"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:s3:::",
+                      {
+                        "Ref": "S3Bucket"
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "Roles": [
+          {
+            "Ref": "InstanceRole"
+          }
+        ]
+      }
+    },
+    "InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "InstanceRole"
+          }
+        ]
+      }
+    },
+    "solr": {
+      "Type": "AWS::EC2::Instance",
+      "Metadata": {
+        "AWS::CloudFormation::Authentication": {
+          "S3AccessCreds": {
+            "type": "S3",
+            "roleName": {
+              "Ref": "InstanceRole"
+            },
+            "buckets": [
+              {
+                "Ref": "S3Bucket"
+              }
+            ]
+          }
+        },
+        "AWS::CloudFormation::Init": {
+          "configSets": {
+            "full": [
+              "config1"
+            ]
+          },
+          "config1": {
+            "files": {
+              "/opt/init/install-java.sh": {
+                "source": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "https://",
+                      {
+                        "Ref": "S3Bucket"
+                      },
+                      ".s3.amazonaws.com/install-java.sh"
+                    ]
+                  ]
+                },
+                "mode": "000755",
+                "owner": "root",
+                "group": "root",
+                "authentication": "S3AccessCreds"
+              },
+              "/opt/init/schema.xml": {
+                "source": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "https://",
+                      {
+                        "Ref": "S3Bucket"
+                      },
+                      ".s3.amazonaws.com/schema.xml"
+                    ]
+                  ]
+                },
+                "mode": "000755",
+                "owner": "root",
+                "group": "root",
+                "authentication": "S3AccessCreds"
+              },
+              "/opt/init/searchengine.xml": {
+                "source": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "https://",
+                      {
+                        "Ref": "S3Bucket"
+                      },
+                      ".s3.amazonaws.com/searchengine.xml"
+                    ]
+                  ]
+                },
+                "mode": "000755",
+                "owner": "root",
+                "group": "root",
+                "authentication": "S3AccessCreds"
+              },
+              "/opt/init/install-tomcat.sh": {
+                "source": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "https://",
+                      {
+                        "Ref": "S3Bucket"
+                      },
+                      ".s3.amazonaws.com/install-tomcat.sh"
+                    ]
+                  ]
+                },
+                "mode": "000755",
+                "owner": "root",
+                "group": "root",
+                "authentication": "S3AccessCreds"
+              },
+              "/opt/init/solr-config.sh": {
+                "source": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "https://",
+                      {
+                        "Ref": "S3Bucket"
+                      },
+                      ".s3.amazonaws.com/solr-config.sh"
+                    ]
+                  ]
+                },
+                "mode": "000755",
+                "owner": "root",
+                "group": "root",
+                "authentication": "S3AccessCreds"
+              }
+            }
+          }
+        }
+      },
+      "Properties": {
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "IamInstanceProfile": {
+          "Ref": "InstanceProfile"
+        },
+        "ImageId": {
+          "Ref": "ImageID"
+        },
+        "KeyName": {
+          "Ref": "InstanceKey"
+        },
+        "NetworkInterfaces": [
+          {
+            "AssociatePublicIpAddress": "true",
+            "DeleteOnTermination": "true",
+            "DeviceIndex": "0",
+            "SubnetId": {
+              "Ref": "Subnet"
+            },
+            "GroupSet": [
+              {
+                "Ref": "solrsg"
+              }
+            ]
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "eu-solr"
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash -x\n",
+                "yum update -y aws-cfn-bootstrap\n",
+                "exec &> /home/ec2-user/userdata.log\n",
+                "# Helper function\n",
+                "function error_exit\n",
+                "{\n",
+                "  /opt/aws/bin/cfn-signal -s false -r \"$1\" '",
+                {
+                  "Ref": "WaitHandle"
+                },
+                "'\n",
+                "  exit 1\n",
+                "}\n",
+                "/opt/aws/bin/cfn-init --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                " -s ",
+                {
+                  "Ref": "AWS::StackId"
+                },
+                " --configset full",
+                " -r solr -v",
+                " || error_exit 'Failed to run cfn-init'\n",
+                "sh /opt/init/install-java.sh http://download.oracle.com/otn-pub/java/jdk/7u79-b15/jdk-7u79-linux-x64.tar.gz",
+                " || error_exit 'Failed to run install-java.sh'\n",
+                "sh /opt/init/install-tomcat.sh http://www.webhostingjams.com/mirror/apache/tomcat/tomcat-7/v7.0.62/bin/apache-tomcat-7.0.62.tar.gz",
+                " || error_exit 'Failed to run install-tomcat.sh'\n",
+                "sh /opt/init/solr-config.sh http://archive.apache.org/dist/lucene/solr/4.7.2/solr-4.7.2.tgz",
+                " || error_exit 'Failed to run solr-config.sh'\n",
+                "/opt/aws/bin/cfn-signal -e $? '",
+                {
+                  "Ref": "WaitHandle"
+                },
+                "'\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "Volume1": {
+      "Type": "AWS::EC2::Volume",
+      "Properties": {
+        "Size": "5",
+        "AvailabilityZone": {
+          "Fn::GetAtt": [
+            "solr",
+            "AvailabilityZone"
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "solr-volume",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "MountPoint": {
+      "Type": "AWS::EC2::VolumeAttachment",
+      "Properties": {
+        "InstanceId": {
+          "Ref": "solr"
+        },
+        "VolumeId": {
+          "Ref": "Volume1"
+        },
+        "Device": "/dev/sdh"
+      }
+    },
+    "WaitHandle": {
+      "Type": "AWS::CloudFormation::WaitConditionHandle"
+    },
+    "WaitCondition": {
+      "Type": "AWS::CloudFormation::WaitCondition",
+      "DependsOn": "solr",
+      "Properties": {
+        "Handle": {
+          "Ref": "WaitHandle"
+        },
+        "Timeout": {
+          "Ref": "WaitTime"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "SolrInstance": {
+      "Value": {
+        "Ref": "solr"
+      }
+    }
+  }
+}
