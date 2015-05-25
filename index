@@ -1,0 +1,48 @@
+
+AWS-CloudFormation
+------------------
+    >> Why this
+        - reliable and repeatable stack deployment
+        - easy to learn - JSON format
+        - infrastructure as code and versioned
+        - can perform CRUD operations on resources created by CF
+        - free
+
+    >> Basic Structure of CF template [DEMO]
+
+    >> Creating a VPC with public subnet [DEMO]
+
+    >> Interacting with CF using - terminal and CF console [DEMO]
+
+    >> Get one instance up and get solr running on it [DEMO]
+
+        > understanding what is needed to get solr up and running
+            - get java
+            - solr.gz
+            - tomcat.gz
+            - extract solr webapp and place inside tomcat webapp
+            - create folders and place configuration files in palce
+            - start tomcat
+
+        > cfn.init
+
+    >> How this works behind the scene
+
+    >> Usage of this in mercatus [FIGURE]
+
+    >> What is not so good in CF
+        - works only with aws
+        - debugging
+        - application deployment
+        - software installation and maintenance
+
+
+
+
+
+Interesting links
+-----------------
+http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/Welcome.html
+http://www.quora.com/Why-are-there-no-AWS-CloudFormation-success-stories
+http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-whatis-howdoesitwork.html
+http://stackoverflow.com/questions/14454657/awscloudformationinit-how-does-it-work
