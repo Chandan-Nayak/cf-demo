@@ -285,6 +285,7 @@
         "ImageId": {
           "Ref": "ImageID"
         },
+
         "KeyName": {
           "Ref": "InstanceKey"
         },
@@ -408,6 +409,24 @@
       "Value": {
         "Ref": "solr"
       }
+    },
+    "SolrURL": {
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "http://",
+            {
+              "Fn::GetAtt": [
+                "solr",
+                "PublicDnsName"
+              ]
+            },
+            ":8080/searchengine"
+          ]
+        ]
+      },
+      "Description": "URL for newly created solr instance"
     }
   }
 }
